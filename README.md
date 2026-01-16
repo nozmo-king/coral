@@ -41,10 +41,7 @@ Coral isn't just another cryptocurrency—it's a **revolutionary approach to fai
 ## 🚀 Quick Start
 
 ### For Windows Users
-1. **Download**: [Coral-1.0.0-Windows-Setup.exe](https://github.com/nozmo-king/coral/raw/master/Coral-1.0.0-Windows-Setup.exe) (770KB)
-2. **Install**: Run installer as Administrator
-3. **Mine**: Launch "Coral Mining" from Start Menu
-4. **Expected Performance**: 500-8000 H/s depending on your CPU
+See [Build Instructions](doc/build-windows.md) for cross-compiling on Linux, or build natively using MSVC.
 
 ### For Linux/macOS Users
 ```bash
@@ -152,7 +149,7 @@ sudo apt install -y g++-mingw-w64-x86-64 mingw-w64-x86-64-dev wine64
 # Build
 git clone https://github.com/nozmo-king/coral.git
 cd coral
-./build-windows.sh
+./contrib/coral/windows/build.sh
 ```
 
 ---
@@ -160,13 +157,13 @@ cd coral
 ## 📖 **Documentation**
 
 ### For Beginners
-- **[Complete Noob's Guide](GETTING_STARTED.md)** - Step-by-step setup instructions
-- **[Windows README](build-win64/README-Windows.txt)** - Windows-specific guide
+- **[Complete Noob's Guide](doc/coral/GETTING_STARTED.md)** - Step-by-step setup instructions
+- **[Download Instructions](doc/coral/DOWNLOAD.md)** - How to obtain Coral
 
 ### For Advanced Users
 - **[Build Instructions](doc/build-unix.md)** - Detailed compilation guide
-- **[Network Launch Guide](coral-launch.md)** - Technical network details
-- **[Mining Optimization](doc/)** - Performance tuning tips
+- **[Network Launch Guide](doc/coral/coral-launch.md)** - Technical network details
+- **[Testing Guide](doc/coral/CORAL_TESTING.md)** - Testing procedures
 
 ### For Developers
 - **[Developer Notes](doc/developer-notes.md)** - Code contribution guidelines
@@ -332,7 +329,7 @@ Need help? We're here for you:
 
 *Fair Mining • CPU Democracy • Financial Freedom*
 
-**[⬇️ Download Windows Installer](https://github.com/nozmo-king/coral/raw/master/Coral-1.0.0-Windows-Setup.exe) | [📖 Read Full Guide](GETTING_STARTED.md) | [🔧 Build from Source](#building-from-source)**
+**[📖 Read Full Guide](doc/coral/GETTING_STARTED.md) | [🔧 Build from Source](#building-from-source)**
 
 </div>
 
