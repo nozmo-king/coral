@@ -220,7 +220,3 @@ else
     echo ""
     echo "Original files backed up with .original and .randomx_backup extensions"
 fi
-EOF
-
-chmod +x /home/claude/integrate-randomx.sh
-cp /home/claude/integrate-randomx.sh /mnt/user-data/outputs/
