@@ -331,9 +331,6 @@ void Shutdown(NodeContext& node)
         LogPrintf("%s: Unable to remove PID file: %s\n", __func__, fsbridge::get_filesystem_error_message(e));
     }
 
-    // Cleanup RandomX resources
-    ShutdownRandomX();
-
     LogPrintf("%s: done\n", __func__);
 }
 

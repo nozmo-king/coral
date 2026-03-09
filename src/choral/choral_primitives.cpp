@@ -15,6 +15,7 @@ static const std::string CHORAL_MESSAGE_TAG = "CHORAL/MESSAGE";
 static const std::string CHORAL_SUBNET_TAG = "CHORAL/SUBNET";
 static const std::string CHORAL_REGISTRY_TAG = "CHORAL/REGISTRY";
 static const std::string CHORAL_FOREST_LEAF_TAG = "CHORAL/FOREST/LEAF";
+static const std::string CHORAL_HEADER_TAG      = "CHORAL/HEADER";
 
 // WorkReceipt implementation
 

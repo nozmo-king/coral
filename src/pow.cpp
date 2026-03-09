@@ -15,14 +15,7 @@
 #include <streams.h>
 #include <version.h>
 
-#include <randomx.h>
-
-// RandomX instance management
-static randomx_cache* rx_cache = nullptr;
-static randomx_dataset* rx_dataset = nullptr;
-static randomx_vm* rx_vm = nullptr;
-static uint256 rx_key_hash;
-static bool rx_initialized = false;
+#include <crypto/metalgraph21.h>
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
@@ -163,125 +156,81 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
     return true;
 }
 
-// RandomX Key Generation - uses previous block hash as key
-uint256 GetRandomXKey(const uint256& prevBlockHash) {
-    // For genesis block, use a fixed key
-    if (prevBlockHash.IsNull()) {
-        return uint256S("0x436f72616c2047656e65736973204b657920536570742032372c2032303235"); // "Coral Genesis Key Sept 27, 2025"
-    }
-    return prevBlockHash;
+// ---------------------------------------------------------------------------
+// MetalGraph21 graph cache — avoids rebuilding the 134 MB graph per nonce.
+// Keyed on the nonce-independent seed. Single-threaded miner; make
+// thread_local if multi-threaded mining is added in future.
+// ---------------------------------------------------------------------------
+namespace {
+struct MG21Cache {
+    uint256             cached_seed;
+    MetalGraph21::Graph graph;
+    bool                valid{false};
+};
+static MG21Cache g_mg21_cache;
+} // namespace
+
+uint256 GetMetalGraph21Hash(const CBlockHeader& block)
+{
+    return MetalGraph21::Hash(block);
 }
 
-// Initialize RandomX VM with given key
-bool InitializeRandomX(const uint256& key) {
-    try {
-        // Clean up existing instances
-        if (rx_vm) {
-            randomx_destroy_vm(rx_vm);
-            rx_vm = nullptr;
-        }
-        if (rx_dataset) {
-            randomx_release_dataset(rx_dataset);
-            rx_dataset = nullptr;
-        }
-        if (rx_cache) {
-            randomx_release_cache(rx_cache);
-            rx_cache = nullptr;
-        }
-
-        // Create new cache with the key
-        rx_cache = randomx_alloc_cache(RANDOMX_FLAG_DEFAULT);
-        if (!rx_cache) {
-            LogPrintf("RandomX: Failed to allocate cache\n");
-            return false;
-        }
-
-        randomx_init_cache(rx_cache, key.begin(), 32);
-
-        // Create dataset (for better performance)
-        rx_dataset = randomx_alloc_dataset(RANDOMX_FLAG_FULL_MEM);
-        if (rx_dataset) {
-            randomx_init_dataset(rx_dataset, rx_cache, 0, randomx_dataset_item_count());
-
-            // Create VM with dataset
-            rx_vm = randomx_create_vm(RANDOMX_FLAG_FULL_MEM, rx_cache, rx_dataset);
-        } else {
-            // Fallback to light mode if not enough memory
-            LogPrintf("RandomX: Using light mode (dataset allocation failed)\n");
-            rx_vm = randomx_create_vm(RANDOMX_FLAG_DEFAULT, rx_cache, nullptr);
-        }
-
-        if (!rx_vm) {
-            LogPrintf("RandomX: Failed to create VM\n");
-            return false;
-        }
-
-        rx_key_hash = key;
-        rx_initialized = true;
-        LogPrintf("RandomX: Initialized with key %s\n", key.ToString());
-        return true;
-
-    } catch (const std::exception& e) {
-        LogPrintf("RandomX: Exception during initialization: %s\n", e.what());
+bool CheckMetalGraph21PoW(const CBlockHeader& block,
+                           unsigned int nBits,
+                           const Consensus::Params& params)
+{
+    const uint256 digest = MetalGraph21::Hash(block);
+    if (!MetalGraph21::CheckMotif(digest)) {
         return false;
     }
+    return CheckProofOfWork(digest, nBits, params);
 }
 
-// Compute RandomX hash for a block header
-uint256 GetRandomXHash(const CBlockHeader& block) {
-    // Get the key for this block (previous block hash)
-    uint256 key = GetRandomXKey(block.hashPrevBlock);
+bool ScanMetalGraph21Hash(CBlockHeader* pblock,
+                           uint64_t& nNonce,
+                           uint32_t nHashesDone,
+                           const Consensus::Params& consensusParams)
+{
+    const arith_uint256 target = arith_uint256().SetCompact(pblock->nBits);
 
-    // Initialize RandomX if needed or key changed
-    if (!rx_initialized || rx_key_hash != key) {
-        if (!InitializeRandomX(key)) {
-            LogPrintf("RandomX: Failed to initialize, falling back to SHA256\n");
-            return block.GetHash(); // Fallback to SHA256
+    const uint256 seed = MetalGraph21::DeriveSeed(*pblock);
+
+    if (!g_mg21_cache.valid || g_mg21_cache.cached_seed != seed) {
+        g_mg21_cache.graph.Resize(MetalGraph21::NODE_COUNT_V0);
+        MetalGraph21::BuildGraph(seed, g_mg21_cache.graph);
+
+        bool metal_ok = false;
+#if defined(__APPLE__)
+        metal_ok = MetalGraph21::TransformGraphMetal(g_mg21_cache.graph);
+#endif
+        if (!metal_ok) {
+            MetalGraph21::TransformGraphCPU(g_mg21_cache.graph);
+        }
+
+        g_mg21_cache.cached_seed = seed;
+        g_mg21_cache.valid       = true;
+        LogPrintf("MetalGraph21: Built graph for seed %s\n", seed.ToString());
+    }
+
+    uint256 digest;
+    for (uint32_t i = 0; i < nHashesDone; ++i) {
+        pblock->nNonce = nNonce;
+
+        MetalGraph21::FoldGraph(g_mg21_cache.graph, seed,
+                                nNonce, pblock->nExtraNonce,
+                                *pblock, digest);
+
+        if (MetalGraph21::CheckMotif(digest) &&
+            UintToArith256(digest) <= target) {
+            return true;
+        }
+
+        ++nNonce;
+
+        if ((i & 0x3ffu) == 0 && ShutdownRequested()) {
+            return false;
         }
     }
-
-    try {
-        // Serialize block header for hashing
-        CDataStream ss(SER_NETWORK, INIT_PROTO_VERSION);
-        ss << block;
-
-        // Calculate RandomX hash
-        char hash[RANDOMX_HASH_SIZE];
-        randomx_calculate_hash(rx_vm, ss.data(), ss.size(), hash);
-
-        // Convert to uint256
-        uint256 result;
-        memcpy(result.begin(), hash, 32);
-
-        return result;
-
-    } catch (const std::exception& e) {
-        LogPrintf("RandomX: Exception during hash calculation: %s\n", e.what());
-        return block.GetHash(); // Fallback to SHA256
-    }
-}
-
-// Check RandomX proof of work
-bool CheckRandomXProofOfWork(const CBlockHeader& block, unsigned int nBits, const Consensus::Params& params) {
-    uint256 randomx_hash = GetRandomXHash(block);
-    return CheckProofOfWork(randomx_hash, nBits, params);
-}
-
-// Cleanup RandomX resources
-void ShutdownRandomX() {
-    if (rx_vm) {
-        randomx_destroy_vm(rx_vm);
-        rx_vm = nullptr;
-    }
-    if (rx_dataset) {
-        randomx_release_dataset(rx_dataset);
-        rx_dataset = nullptr;
-    }
-    if (rx_cache) {
-        randomx_release_cache(rx_cache);
-        rx_cache = nullptr;
-    }
-    rx_initialized = false;
-    LogPrintf("RandomX: Shutdown complete\n");
+    return false;
 }
 

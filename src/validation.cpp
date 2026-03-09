@@ -3321,8 +3321,8 @@ void Chainstate::ReceivedBlockTransactions(const CBlock& block, CBlockIndex* pin
 
 static bool CheckBlockHeader(const CBlockHeader& block, BlockValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true)
 {
-    // Check proof of work matches claimed amount - Use RandomX for Coral
-    if (fCheckPOW && !CheckRandomXProofOfWork(block, block.nBits, consensusParams))
+    // Check proof of work matches claimed amount - MetalGraph21
+    if (fCheckPOW && !CheckMetalGraph21PoW(block, block.nBits, consensusParams))
         return state.Invalid(BlockValidationResult::BLOCK_INVALID_HEADER, "high-hash", "proof of work failed");
 
     return true;
@@ -3444,7 +3444,7 @@ std::vector<unsigned char> ChainstateManager::GenerateCoinbaseCommitment(CBlock&
 bool HasValidProofOfWork(const std::vector<CBlockHeader>& headers, const Consensus::Params& consensusParams)
 {
     return std::all_of(headers.cbegin(), headers.cend(),
-            [&](const auto& header) { return CheckRandomXProofOfWork(header, header.nBits, consensusParams);});
+            [&](const auto& header) { return CheckMetalGraph21PoW(header, header.nBits, consensusParams);});
 }
 
 arith_uint256 CalculateHeadersWork(const std::vector<CBlockHeader>& headers)

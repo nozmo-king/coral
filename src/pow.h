@@ -34,11 +34,30 @@ bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params&
  */
 bool PermittedDifficultyTransition(const Consensus::Params& params, int64_t height, uint32_t old_nbits, uint32_t new_nbits);
 
-/** RandomX proof-of-work functions for Coral */
-uint256 GetRandomXKey(const uint256& prevBlockHash);
-bool InitializeRandomX(const uint256& key);
-uint256 GetRandomXHash(const CBlockHeader& block);
-bool CheckRandomXProofOfWork(const CBlockHeader& block, unsigned int nBits, const Consensus::Params&);
-void ShutdownRandomX();
+/** MetalGraph21 proof-of-work functions for Choral */
+
+/**
+ * Compute the MetalGraph21 hash for a block header.
+ * Uses Metal GPU on Apple Silicon if available, CPU reference path otherwise.
+ */
+uint256 GetMetalGraph21Hash(const CBlockHeader& block);
+
+/**
+ * Validate a block's MetalGraph21 proof-of-work.
+ * Checks both numeric difficulty (digest < target) and the 21e8 motif.
+ */
+bool CheckMetalGraph21PoW(const CBlockHeader& block,
+                           unsigned int nBits,
+                           const Consensus::Params& params);
+
+/**
+ * Scan nonces until a valid MetalGraph21 hash is found.
+ * Graph construction (Stage 2+3) is cached per seed to make the inner
+ * nonce loop fast. Returns true when a valid nonce is found.
+ */
+bool ScanMetalGraph21Hash(CBlockHeader* pblock,
+                           uint64_t& nNonce,
+                           uint32_t nHashesDone,
+                           const Consensus::Params& consensusParams);
 
 #endif // CORAL_POW_H

@@ -199,9 +199,8 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
 /** Update an old GenerateCoinbaseCommitment from CreateNewBlock after the block txs have changed */
 void RegenerateCommitments(CBlock& block, ChainstateManager& chainman);
 
-/** RandomX Mining Functions */
+/** MetalGraph21 Mining Functions */
 void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned int& nExtraNonce);
-bool ScanRandomXHash(CBlockHeader *pblock, uint32_t& nNonce, uint32_t nHashesDone, const Consensus::Params& consensusParams);
 void CoralMiner(const CChainParams& chainparams, const CScript& coinbaseScript, CConnman* connman);
 } // namespace node
 

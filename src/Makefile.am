@@ -536,7 +536,20 @@ crypto_libcoral_crypto_base_la_SOURCES = \
   crypto/sha512.cpp \
   crypto/sha512.h \
   crypto/siphash.cpp \
-  crypto/siphash.h
+  crypto/siphash.h \
+  crypto/metalgraph21.h \
+  crypto/metalgraph21.cpp \
+  crypto/metalgraph21_cpu.cpp
+
+if HAVE_METAL
+crypto_libcoral_crypto_metal_la_LDFLAGS = $(AM_LDFLAGS) -static
+crypto_libcoral_crypto_metal_la_OBJCXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -static
+crypto_libcoral_crypto_metal_la_CPPFLAGS = $(AM_CPPFLAGS)
+crypto_libcoral_crypto_metal_la_SOURCES = crypto/metalgraph21_metal.mm
+crypto_libcoral_crypto_metal_la_LDFLAGS += -framework Metal -framework Foundation
+LIBCORAL_CRYPTO_METAL = crypto/libcoral_crypto_metal.la
+LIBCORAL_CRYPTO += $(LIBCORAL_CRYPTO_METAL)
+endif
 
 if USE_ASM
 crypto_libcoral_crypto_base_la_SOURCES += crypto/sha256_sse4.cpp
@@ -749,13 +762,13 @@ corald_SOURCES = $(coral_daemon_sources) init/corald.cpp
 corald_CPPFLAGS = $(coral_bin_cppflags)
 corald_CXXFLAGS = $(coral_bin_cxxflags)
 corald_LDFLAGS = $(coral_bin_ldflags)
-corald_LDADD = $(LIBCORAL_NODE) $(coral_bin_ldadd) -lrandomx
+corald_LDADD = $(LIBCORAL_NODE) $(coral_bin_ldadd)
 
 coral_node_SOURCES = $(coral_daemon_sources) init/coral-node.cpp
 coral_node_CPPFLAGS = $(coral_bin_cppflags)
 coral_node_CXXFLAGS = $(coral_bin_cxxflags)
 coral_node_LDFLAGS = $(coral_bin_ldflags)
-coral_node_LDADD = $(LIBCORAL_NODE) $(coral_bin_ldadd) $(LIBCORAL_IPC) $(LIBMULTIPROCESS_LIBS) -lrandomx
+coral_node_LDADD = $(LIBCORAL_NODE) $(coral_bin_ldadd) $(LIBCORAL_IPC) $(LIBMULTIPROCESS_LIBS)
 
 # coral-cli binary #
 coral_cli_SOURCES = coral-cli.cpp
@@ -767,7 +780,7 @@ if TARGET_WINDOWS
 coral_cli_SOURCES += coral-cli-res.rc
 endif
 
-coral_cli_LDADD = -lrandomx \
+coral_cli_LDADD = \
   $(LIBCORAL_CLI) \
   $(LIBUNIVALUE) \
   $(LIBCORAL_UTIL) \
@@ -786,7 +799,7 @@ if TARGET_WINDOWS
 coral_tx_SOURCES += coral-tx-res.rc
 endif
 
-coral_tx_LDADD = -lrandomx \
+coral_tx_LDADD = \
   $(LIBUNIVALUE) \
   $(LIBCORAL_COMMON) \
   $(LIBCORAL_UTIL) \
@@ -828,7 +841,7 @@ if TARGET_WINDOWS
 coral_util_SOURCES += coral-util-res.rc
 endif
 
-coral_util_LDADD = -lrandomx \
+coral_util_LDADD = \
   $(LIBCORAL_COMMON) \
   $(LIBCORAL_UTIL) \
   $(LIBUNIVALUE) \

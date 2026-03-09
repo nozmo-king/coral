@@ -459,37 +459,8 @@ void IncrementExtraNonce(CBlock* pblock, const CBlockIndex* pindexPrev, unsigned
     pblock->hashMerkleRoot = BlockMerkleRoot(*pblock);
 }
 
-// RandomX Mining Function
-bool ScanRandomXHash(CBlockHeader *pblock, uint32_t& nNonce, uint32_t nHashesDone, const Consensus::Params& consensusParams)
-{
-    uint256 hashTarget = ArithToUint256(arith_uint256().SetCompact(pblock->nBits));
+// MetalGraph21 scan loop lives in pow.cpp as ScanMetalGraph21Hash.
 
-    while (nHashesDone < 0x10000) {
-        pblock->nNonce = nNonce;
-
-        // Use RandomX to hash the block header
-        uint256 hash = GetRandomXHash(*pblock);
-
-        // Check if we found a valid hash
-        if (UintToArith256(hash) <= UintToArith256(hashTarget)) {
-            return true;
-        }
-
-        ++nNonce;
-        ++nHashesDone;
-
-        // Check for shutdown every 1000 hashes
-        if ((nHashesDone & 0x3ff) == 0) {
-            if (ShutdownRequested()) {
-                return false;
-            }
-        }
-    }
-
-    return false;
-}
-
-// Enhanced mining loop with RandomX
 static bool ProcessBlockFound(const CBlock& block, const CChainParams& chainparams)
 {
     LogPrintf("%s\n", block.ToString());
@@ -514,7 +485,7 @@ static bool ProcessBlockFound(const CBlock& block, const CChainParams& chainpara
 // Main mining loop
 void CoralMiner(const CChainParams& chainparams, const CScript& coinbaseScript, CConnman* connman)
 {
-    LogPrintf("CoralMiner started with RandomX\n");
+    LogPrintf("CoralMiner started with MetalGraph21\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("coral-miner");
 
@@ -535,35 +506,30 @@ void CoralMiner(const CChainParams& chainparams, const CScript& coinbaseScript, 
             LogPrintf("Running CoralMiner with %u transactions in block (%u bytes)\n",
                      pblock->vtx.size(), ::GetSerializeSize(*pblock, PROTOCOL_VERSION));
 
-            // Search for RandomX solution
-            uint32_t nNonce = 0;
-            uint32_t nHashesDone = 0;
+            // Search for MetalGraph21 solution
+            uint64_t nNonce = 0;
             int64_t nStart = GetTimeMillis();
 
             while (!ShutdownRequested()) {
-                bool found = ScanRandomXHash(pblock, nNonce, nHashesDone, chainparams.GetConsensus());
+                // Scan 65536 nonces per iteration; graph is cached across calls
+                bool found = ScanMetalGraph21Hash(pblock, nNonce, 0x10000,
+                                                  chainparams.GetConsensus());
 
                 if (found) {
-                    // Found a solution!
                     if (ProcessBlockFound(*pblock, chainparams)) {
-                        LogPrintf("CoralMiner: Block found! Hash: %s\n", pblock->GetHash().ToString());
+                        LogPrintf("CoralMiner: Block found! Hash: %s\n",
+                                  pblock->GetHash().ToString());
                     }
                     break;
                 }
 
-                // Update time and check if we need a new block
-                if (GetTimeMillis() - nStart > 60000) { // 60 seconds
-                    break; // Get new block template
+                // Refresh template every 60 seconds
+                if (GetTimeMillis() - nStart > 60000) {
+                    break;
                 }
 
-                // Update block time
-                UpdateTime(pblock, chainparams.GetConsensus(), ::ChainstateActive().m_chain.Tip());
-
-                // Check if anything changed
-                if (pblock->nNonce >= 0x10000) {
-                    nNonce = 0;
-                    nHashesDone = 0;
-                }
+                UpdateTime(pblock, chainparams.GetConsensus(),
+                           ::ChainstateActive().m_chain.Tip());
             }
         }
     } catch (const std::exception& e) {

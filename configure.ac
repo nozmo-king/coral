@@ -686,9 +686,44 @@ AC_ARG_WITH([daemon],
   [build_corald=$withval],
   [build_corald=yes])
 
-# Check for RandomX library (required for Coral)
-AC_CHECK_LIB([randomx], [randomx_alloc_cache], [], [AC_MSG_ERROR([RandomX library not found. Please install RandomX from https://github.com/tevador/RandomX])])
-AC_CHECK_HEADERS([randomx.h], [], [AC_MSG_ERROR([RandomX headers not found. Please install RandomX development headers])])
+dnl ==========================================================================
+dnl MetalGraph21: Metal GPU compute (optional, Apple Silicon + macOS only)
+dnl ==========================================================================
+AC_ARG_ENABLE([metal],
+  [AS_HELP_STRING([--enable-metal],
+  [enable Metal GPU path for MetalGraph21 mining (default: auto-detect on macOS)])],
+  [enable_metal=$enableval],
+  [enable_metal=auto])
+
+have_metal=no
+if test "$enable_metal" != "no"; then
+  case $host_os in
+    darwin*)
+      saved_LDFLAGS="$LDFLAGS"
+      LDFLAGS="$LDFLAGS -framework Metal -framework Foundation"
+      AC_MSG_CHECKING([for Metal framework])
+      AC_LINK_IFELSE(
+        [AC_LANG_PROGRAM([[#include <AvailabilityMacros.h>]], [[]])],
+        [AC_MSG_RESULT([yes]); have_metal=yes],
+        [AC_MSG_RESULT([no])]
+      )
+      LDFLAGS="$saved_LDFLAGS"
+      if test "$enable_metal" = "yes" && test "$have_metal" = "no"; then
+        AC_MSG_ERROR([--enable-metal specified but Metal framework not found])
+      fi
+      ;;
+    *)
+      if test "$enable_metal" = "yes"; then
+        AC_MSG_ERROR([--enable-metal is only supported on macOS/Darwin targets])
+      fi
+      ;;
+  esac
+fi
+
+if test "$have_metal" = "yes"; then
+  AC_DEFINE([HAVE_METAL], [1],
+    [Define if the Metal framework is available for GPU compute])
+fi
 
 case $host in
   *mingw*)
@@ -1878,6 +1913,7 @@ if test "$build_coral_wallet$build_coral_cli$build_coral_tx$build_coral_libs$bui
   AC_MSG_ERROR([No targets! Please specify at least one of: --with-utils --with-libs --with-daemon --with-gui --enable-fuzz(-binary) --enable-bench or --enable-tests])
 fi
 
+AM_CONDITIONAL([HAVE_METAL], [test "$have_metal" = "yes"])
 AM_CONDITIONAL([TARGET_DARWIN], [test "$TARGET_OS" = "darwin"])
 AM_CONDITIONAL([BUILD_DARWIN], [test "$BUILD_OS" = "darwin"])
 AM_CONDITIONAL([TARGET_LINUX], [test "$TARGET_OS" = "linux"])
